@@ -1,29 +1,86 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { GraphData, ComparisonArticle } from "../types";
 
-if (!process.env.API_KEY) {
-    throw new Error("РџРµСЂРµРјРµРЅРЅР°СЏ РѕРєСЂСѓР¶РµРЅРёСЏ API_KEY РЅРµ СѓСЃС‚Р°РЅРѕРІР»РµРЅР°");
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+if (!OPENROUTER_API_KEY) {
+    throw new Error("Переменная окружения OPENROUTER_API_KEY не установлена");
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_SITE_URL = process.env.OPENROUTER_SITE_URL || "http://localhost:3000";
+const OPENROUTER_APP_NAME = process.env.OPENROUTER_APP_NAME || "Scientific AI Assistant";
+const OPENROUTER_MAX_TOKENS = Number(process.env.OPENROUTER_MAX_TOKENS || "4096");
+
+const FAST_MODEL = process.env.OPENROUTER_FAST_MODEL || "google/gemini-2.5-flash";
+const THINK_MODEL = process.env.OPENROUTER_THINK_MODEL || "anthropic/claude-3.5-sonnet-20240620";
+const JSON_MODEL = process.env.OPENROUTER_JSON_MODEL || "google/gemini-2.5-flash-lite-preview-09-2025";
+
+type Message = {
+    role: "system" | "user" | "assistant";
+    content: string;
+};
+
+async function callOpenRouter(
+    model: string,
+    messages: Message[],
+    extraBody: Record<string, unknown> = {}
+) {
+    const payload = {
+        model,
+        messages,
+        max_tokens: OPENROUTER_MAX_TOKENS,
+        ...extraBody,
+    };
+
+    const response = await fetch(OPENROUTER_BASE_URL, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+            "HTTP-Referer": OPENROUTER_SITE_URL,
+            "X-Title": OPENROUTER_APP_NAME,
+        },
+        body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+        const message = data?.error?.message || response.statusText || "Неизвестная ошибка OpenRouter";
+        throw new Error(message);
+    }
+
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) {
+        throw new Error("Пустой ответ модели");
+    }
+
+    if (typeof content === "string") {
+        return content;
+    }
+
+    if (Array.isArray(content)) {
+        return content
+            .map((chunk: any) => (typeof chunk === "string" ? chunk : chunk?.text ?? ""))
+            .join("")
+            .trim();
+    }
+
+    return (content as { text?: string }).text ?? "";
+}
 
 export async function generateResponse(
-    prompt: string, 
-    context: string | null, 
+    prompt: string,
+    context: string | null,
     isThinkingMode: boolean,
     useGrounding: boolean = false
 ): Promise<string> {
-    
-    const modelName = isThinkingMode && !useGrounding ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-    
-    const scholarlySystemInstruction = "РўС‹ вЂ” РїРѕР»РµР·РЅС‹Р№ РР-Р°СЃСЃРёСЃС‚РµРЅС‚ РґР»СЏ СЃС‚СѓРґРµРЅС‚РѕРІ Рё РёСЃСЃР»РµРґРѕРІР°С‚РµР»РµР№. РўРІРѕСЏ Р·Р°РґР°С‡Р° вЂ” Р°РЅР°Р»РёР·РёСЂРѕРІР°С‚СЊ РїСЂРµРґРѕСЃС‚Р°РІР»РµРЅРЅС‹Р№ С‚РµРєСЃС‚ РёР· РЅР°СѓС‡РЅРѕРіРѕ РґРѕРєСѓРјРµРЅС‚Р° Рё РѕС‚РІРµС‡Р°С‚СЊ РЅР° РІРѕРїСЂРѕСЃС‹ С‚РѕС‡РЅРѕ Рё РєСЂР°С‚РєРѕ. РџСЂРё РїРѕРёСЃРєРµ РІ РёРЅС‚РµСЂРЅРµС‚Рµ, СЃСЃС‹Р»Р°Р№СЃСЏ РЅР° Р°РІС‚РѕСЂРёС‚РµС‚РЅС‹Рµ РЅР°СѓС‡РЅС‹Рµ РёСЃС‚РѕС‡РЅРёРєРё.";
-    const writingSystemInstruction = "РўС‹ вЂ” РїРѕР»РµР·РЅС‹Р№ РР-Р°СЃСЃРёСЃС‚РµРЅС‚ РґР»СЏ РїРёСЃСЊРјР°. РўРІРѕСЏ Р·Р°РґР°С‡Р° вЂ” РїРѕРјРѕРіР°С‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏРј СѓР»СѓС‡С€Р°С‚СЊ РёС… С‚РµРєСЃС‚С‹, РїСЂРѕРІРµСЂСЏС‚СЊ СЃС‚РёР»СЊ Рё РїРµСЂРµС„СЂР°Р·РёСЂРѕРІР°С‚СЊ, РѕСЃРЅРѕРІС‹РІР°СЏСЃСЊ С‚РѕР»СЊРєРѕ РЅР° РїСЂРµРґРѕСЃС‚Р°РІР»РµРЅРЅРѕРј С‚РµРєСЃС‚Рµ.";
+    const scholarlySystemInstruction =
+        "Ты — полезный ИИ-ассистент для студентов и исследователей. Твоя задача — анализировать предоставленный текст из научного документа и отвечать на вопросы точно и кратко.";
+    const writingSystemInstruction =
+        "Ты — полезный ИИ-ассистент для письма. Помогай улучшать тексты, проверяй стиль и перефразируй, основываясь только на предоставленном тексте.";
 
-    const config: any = {};
-    let fullPrompt = '';
-
+    let userPrompt: string;
     if (context) {
-        fullPrompt = `Based on the following scientific article context, please answer the user's request. Provide your answer in well-structured markdown format.
+        userPrompt = `Based on the following scientific article context, please answer the user's request. Provide your answer in well-structured markdown format.
 
 --- CONTEXT START ---
 ${context.substring(0, 30000)}
@@ -31,150 +88,104 @@ ${context.substring(0, 30000)}
 
 User Request: ${prompt}`;
     } else {
-        fullPrompt = prompt;
-    }
-
-
-    if (isThinkingMode && !useGrounding) {
-        config.thinkingConfig = { thinkingBudget: 32768 };
+        userPrompt = prompt;
     }
 
     if (useGrounding) {
-        config.tools = [{googleSearch: {}}];
-        // Move system instruction to prompt when using tools to avoid conflicts
-        fullPrompt = `${scholarlySystemInstruction}\n\n${fullPrompt}`;
-    } else {
-        // Use the appropriate system instruction based on whether context is provided
-        config.systemInstruction = context ? scholarlySystemInstruction : writingSystemInstruction;
+        userPrompt = `You cannot access the web in this environment. Use only the provided context.\n\n${userPrompt}`;
     }
 
+    const systemInstruction = context ? scholarlySystemInstruction : writingSystemInstruction;
+    const model = isThinkingMode ? THINK_MODEL : FAST_MODEL;
+
     try {
-        const response = await ai.models.generateContent({
-            model: modelName,
-            contents: fullPrompt,
-            config,
-        });
-
-        let responseText = response.text;
-
-        const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
-        if (useGrounding && groundingMetadata?.groundingChunks) {
-            const sources = groundingMetadata.groundingChunks
-                .map(chunk => chunk.web)
-                .filter((web): web is { uri: string; title: string } => !!(web && web.uri && web.title));
-
-            const uniqueSources = Array.from(new Map(sources.map(item => [item.uri, item])).values());
-
-            if (uniqueSources.length > 0) {
-                const sourcesMarkdown = uniqueSources
-                    .map((source: { title: string; uri: string }, index) => `${index + 1}. [${source.title}](${source.uri})`)
-                    .join('\n');
-                responseText += `\n\n**РСЃС‚РѕС‡РЅРёРєРё:**\n${sourcesMarkdown}`;
-            }
-        }
-        
-        return responseText;
-
+        const answer = await callOpenRouter(model, [
+            { role: "system", content: systemInstruction },
+            { role: "user", content: userPrompt },
+        ]);
+        return answer;
     } catch (error) {
-        console.error("Error generating response from Gemini:", error);
+        console.error("Error generating response via OpenRouter:", error);
         if (error instanceof Error) {
-            if (error.message.includes("candidate must have finish reason FINISH_REASON_OTHER")) {
-                 return "РР·РІРёРЅРёС‚Рµ, РѕС‚РІРµС‚ РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ СЃРіРµРЅРµСЂРёСЂРѕРІР°РЅ, С‚Р°Рє РєР°Рє Р·Р°РїСЂРѕСЃ Р±С‹Р» Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ РёР·-Р·Р° РЅР°СЃС‚СЂРѕРµРє Р±РµР·РѕРїР°СЃРЅРѕСЃС‚Рё. РџРѕР¶Р°Р»СѓР№СЃС‚Р°, РїРѕРїСЂРѕР±СѓР№С‚Рµ РїРµСЂРµС„РѕСЂРјСѓР»РёСЂРѕРІР°С‚СЊ РІР°С€ Р·Р°РїСЂРѕСЃ.";
-            }
-             if (error.message.includes("400 Bad Request")) {
-                return "РџСЂРѕРёР·РѕС€Р»Р° РѕС€РёР±РєР° РІ Р·Р°РїСЂРѕСЃРµ. Р’РѕР·РјРѕР¶РЅРѕ, `systemInstruction` Рё `tools` РЅРµ РјРѕРіСѓС‚ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊСЃСЏ РІРјРµСЃС‚Рµ РґР»СЏ СЌС‚РѕР№ РјРѕРґРµР»Рё. РџРѕР¶Р°Р»СѓР№СЃС‚Р°, РїРѕРїСЂРѕР±СѓР№С‚Рµ РѕС‚РєР»СЋС‡РёС‚СЊ 'Р Р°СЃС€РёСЂРµРЅРЅС‹Р№ СЂРµР¶РёРј' РїСЂРё РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРё РїРѕРёСЃРєР°.";
-            }
-            return `РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ РѕС‚РІРµС‚ РѕС‚ РР: ${error.message}`;
+            return `Не удалось получить ответ от ИИ: ${error.message}`;
         }
-        return "РџСЂРѕРёР·РѕС€Р»Р° РЅРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР° РїСЂРё РІР·Р°РёРјРѕРґРµР№СЃС‚РІРёРё СЃ РР.";
+        return "Произошла неизвестная ошибка при взаимодействии с ИИ.";
     }
 }
 
-
 export async function generateGraphData(context: string): Promise<GraphData> {
-    const modelName = 'gemini-2.5-flash';
-    
-    const prompt = `РџСЂРѕР°РЅР°Р»РёР·РёСЂСѓР№ СЃР»РµРґСѓСЋС‰РёР№ С‚РµРєСЃС‚ РЅР°СѓС‡РЅРѕР№ СЃС‚Р°С‚СЊРё Рё СЃРѕР·РґР°Р№ РіСЂР°С„ Р·РЅР°РЅРёР№.
-РР·РІР»РµРєРё РєР»СЋС‡РµРІС‹Рµ СЃСѓС‰РЅРѕСЃС‚Рё (РєРѕРЅС†РµРїС†РёРё, С‚РµРѕСЂРёРё, РёСЃСЃР»РµРґРѕРІР°С‚РµР»Рё, РјРµС‚РѕРґС‹) Рё РѕРїСЂРµРґРµР»Рё РѕС‚РЅРѕС€РµРЅРёСЏ РјРµР¶РґСѓ РЅРёРјРё.
-Р’РµСЂРЅРё СЂРµР·СѓР»СЊС‚Р°С‚ РІ РІРёРґРµ JSON-РѕР±СЉРµРєС‚Р° СЃРѕ СЃР»РµРґСѓСЋС‰РµР№ СЃС‚СЂСѓРєС‚СѓСЂРѕР№: { "nodes": [{"id": number, "label": "string"}], "edges": [{"from": number, "to": number, "label": "string"}] }.
-- 'nodes' РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РјР°СЃСЃРёРІРѕРј РѕР±СЉРµРєС‚РѕРІ, РїСЂРµРґСЃС‚Р°РІР»СЏСЋС‰РёС… СЃСѓС‰РЅРѕСЃС‚Рё. РљР°Р¶РґР°СЏ РЅРѕРґР° РґРѕР»Р¶РЅР° РёРјРµС‚СЊ СѓРЅРёРєР°Р»СЊРЅС‹Р№ 'id' Рё 'label'.
-- 'edges' РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РјР°СЃСЃРёРІРѕРј РѕР±СЉРµРєС‚РѕРІ, РїСЂРµРґСЃС‚Р°РІР»СЏСЋС‰РёС… СЃРІСЏР·Рё. РљР°Р¶РґР°СЏ СЃРІСЏР·СЊ РґРѕР»Р¶РЅР° РёРјРµС‚СЊ 'from' Рё 'to', СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РёРµ 'id' РЅРѕРґ, Рё 'label' РґР»СЏ РѕРїРёСЃР°РЅРёСЏ С‚РёРїР° СЃРІСЏР·Рё.
-- РќРµ СЃРѕР·РґР°РІР°Р№ Р±РѕР»РµРµ 25 РЅРѕРґ РґР»СЏ СЏСЃРЅРѕСЃС‚Рё.
-- JSON РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РїРѕР»РЅС‹Рј Рё РєРѕСЂСЂРµРєС‚РЅС‹Рј.
+    const prompt = `Проанализируй следующий текст научной статьи и создай граф знаний.
+Извлеки ключевые сущности (концепции, теории, исследователи, методы) и определи отношения между ними.
+Верни результат в виде JSON-объекта со следующей структурой: { "nodes": [{"id": number, "label": "string"}], "edges": [{"from": number, "to": number, "label": "string"}] }.
+- 'nodes' должен быть массивом объектов, представляющих сущности. Каждая нода должна иметь уникальный 'id' и 'label'.
+- 'edges' должен быть массивом объектов, представляющих связи. Каждая связь должна иметь 'from' и 'to', соответствующие 'id' нод, и 'label' для описания типа связи.
+- Не создавай более 25 нод для ясности.
+- JSON должен быть полным и корректным.
 
---- РљРћРќРўР•РљРЎРў РЎРўРђРўР¬Р ---
+--- КОНТЕКСТ СТАТЬИ ---
 ${context.substring(0, 25000)}
---- РљРћРќР•Р¦ РљРћРќРўР•РљРЎРўРђ ---
+--- КОНЕЦ КОНТЕКСТА ---
 `;
 
     try {
-        const response = await ai.models.generateContent({
-            model: modelName,
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-            }
-        });
+        const raw = await callOpenRouter(
+            JSON_MODEL,
+            [
+                { role: "system", content: "Ты ассистент, который возвращает строго валидный JSON с графом знаний." },
+                { role: "user", content: prompt },
+            ],
+            { response_format: { type: "json_object" } }
+        );
 
-        const jsonText = response.text.trim();
-        const graphData = JSON.parse(jsonText);
-
+        const graphData = JSON.parse(raw);
         if (!graphData.nodes || !graphData.edges) {
-            throw new Error("РџРѕР»СѓС‡РµРЅ РЅРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ С„РѕСЂРјР°С‚ JSON РґР»СЏ РіСЂР°С„Р°.");
+            throw new Error("Получен некорректный формат JSON для графа.");
         }
 
         return graphData as GraphData;
-
     } catch (error) {
-        console.error("РћС€РёР±РєР° РїСЂРё РіРµРЅРµСЂР°С†РёРё РґР°РЅРЅС‹С… РіСЂР°С„Р°:", error);
-        if (error instanceof SyntaxError) {
-             throw new Error("РќРµ СѓРґР°Р»РѕСЃСЊ СЂР°Р·РѕР±СЂР°С‚СЊ JSON-РѕС‚РІРµС‚ РѕС‚ РР. РћРЅ РјРѕРі РІРµСЂРЅСѓС‚СЊ РЅРµРІР°Р»РёРґРЅС‹Р№ С„РѕСЂРјР°С‚.");
-        }
+        console.error("Ошибка при генерации данных графа:", error);
         if (error instanceof Error) {
-            throw new Error(`РќРµ СѓРґР°Р»РѕСЃСЊ СЃРіРµРЅРµСЂРёСЂРѕРІР°С‚СЊ РіСЂР°С„ Р·РЅР°РЅРёР№: ${error.message}`);
+            throw new Error(`Не удалось сгенерировать граф знаний: ${error.message}`);
         }
-        throw new Error("РџСЂРѕРёР·РѕС€Р»Р° РЅРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё РіСЂР°С„Р°.");
+        throw new Error("Произошла неизвестная ошибка при создании графа.");
     }
 }
 
 export async function generateComparison(articles: ComparisonArticle[]): Promise<string> {
-    const modelName = 'gemini-2.5-pro';
-
-    let articlesContext = articles.map((article, index) => {
-        return `
---- РЎРўРђРўР¬РЇ ${index + 1}: ${article.fileName} ---
+    const articlesContext = articles
+        .map((article, index) => {
+            return `
+--- СТАТЬЯ ${index + 1}: ${article.fileName} ---
 ${article.pdfText.substring(0, 15000)}
---- РљРћРќР•Р¦ РЎРўРђРўР¬Р ${index + 1} ---
+--- КОНЕЦ СТАТЬИ ${index + 1} ---
 `;
-    }).join('\n\n');
+        })
+        .join("\n\n");
 
-    const articleTitles = articles.map((a, i) => `"РЎС‚Р°С‚СЊСЏ ${i+1} (${a.fileName})"`).join(', ');
+    const articleTitles = articles.map((a, i) => `"Статья ${i + 1} (${a.fileName})"`).join(", ");
 
-    const prompt = `РўС‹ вЂ” СЌРєСЃРїРµСЂС‚ РїРѕ Р°РЅР°Р»РёР·Сѓ РЅР°СѓС‡РЅС‹С… СЂР°Р±РѕС‚. РўРµР±Рµ РїСЂРµРґРѕСЃС‚Р°РІР»РµРЅС‹ С‚РµРєСЃС‚С‹ РёР· РЅРµСЃРєРѕР»СЊРєРёС… РЅР°СѓС‡РЅС‹С… СЃС‚Р°С‚РµР№. РўРІРѕСЏ Р·Р°РґР°С‡Р° вЂ” РїСЂРѕРІРµСЃС‚Рё РёС… РґРµС‚Р°Р»СЊРЅРѕРµ СЃСЂР°РІРЅРµРЅРёРµ.
-РџСЂРѕР°РЅР°Р»РёР·РёСЂСѓР№ РїСЂРµРґРѕСЃС‚Р°РІР»РµРЅРЅС‹Рµ РєРѕРЅС‚РµРєСЃС‚С‹ Рё РїРѕРґРіРѕС‚РѕРІСЊ СЃС‚СЂСѓРєС‚СѓСЂРёСЂРѕРІР°РЅРЅС‹Р№ РѕС‚С‡РµС‚ РІ С„РѕСЂРјР°С‚Рµ markdown.
-
-РћС‚С‡РµС‚ РґРѕР»Р¶РµРЅ РІРєР»СЋС‡Р°С‚СЊ СЃР»РµРґСѓСЋС‰РёРµ СЂР°Р·РґРµР»С‹:
-1.  **РћР±С‰РёРµ С‚РµРјС‹ Рё РІС‹РІРѕРґС‹**: РћРїСЂРµРґРµР»Рё Рё РѕРїРёС€Рё РєР»СЋС‡РµРІС‹Рµ РёРґРµРё, РіРёРїРѕС‚РµР·С‹ РёР»Рё СЂРµР·СѓР»СЊС‚Р°С‚С‹, РєРѕС‚РѕСЂС‹Рµ СЏРІР»СЏСЋС‚СЃСЏ РѕР±С‰РёРјРё РґР»СЏ РІСЃРµС… РёР»Рё РЅРµСЃРєРѕР»СЊРєРёС… СЃС‚Р°С‚РµР№.
-2.  **Р Р°Р·Р»РёС‡РёСЏ РІ РјРµС‚РѕРґРѕР»РѕРіРёРё**: РџСЂРµРґСЃС‚Р°РІСЊ РґРµС‚Р°Р»СЊРЅРѕРµ СЃСЂР°РІРЅРµРЅРёРµ РјРµС‚РѕРґРѕР»РѕРіРёР№ РІ РІРёРґРµ **markdown-С‚Р°Р±Р»РёС†С‹**. РўР°Р±Р»РёС†Р° РґРѕР»Р¶РЅР° РёРјРµС‚СЊ СЃС‚РѕР»Р±С†С‹ "РџР°СЂР°РјРµС‚СЂ СЃСЂР°РІРЅРµРЅРёСЏ", ${articleTitles}. Р’РєР»СЋС‡Рё РІ РїР°СЂР°РјРµС‚СЂС‹ СЃСЂР°РІРЅРµРЅРёСЏ С‚Р°РєРёРµ Р°СЃРїРµРєС‚С‹, РєР°Рє РѕР±СЉРµРєС‚ РёСЃСЃР»РµРґРѕРІР°РЅРёСЏ, РјРµСЃС‚Рѕ РїСЂРѕРІРµРґРµРЅРёСЏ, РѕСЃРЅРѕРІРЅС‹Рµ РёРЅСЃС‚СЂСѓРјРµРЅС‚С‹, СЌРєСЃРїРµСЂРёРјРµРЅС‚Р°Р»СЊРЅС‹Р№ РґРёР·Р°Р№РЅ Рё РјРµС‚РѕРґС‹ Р°РЅР°Р»РёР·Р° РґР°РЅРЅС‹С….
-3.  **РџСЂРѕС‚РёРІРѕСЂРµС‡РёСЏ Рё СЂР°Р·РЅС‹Рµ РІС‹РІРѕРґС‹**: Р’С‹РґРµР»Рё Р»СЋР±С‹Рµ РїСЂРѕС‚РёРІРѕСЂРµС‡Р°С‰РёРµ РґСЂСѓРі РґСЂСѓРіСѓ РІС‹РІРѕРґС‹, СЂРµР·СѓР»СЊС‚Р°С‚С‹ РёР»Рё РёРЅС‚РµСЂРїСЂРµС‚Р°С†РёРё РґР°РЅРЅС‹С… РјРµР¶РґСѓ СЃС‚Р°С‚СЊСЏРјРё.
-4.  **РС‚РѕРіРѕРІРѕРµ СЂРµР·СЋРјРµ**: РЎРґРµР»Р°Р№ РѕР±С‰РёР№ РІС‹РІРѕРґ Рѕ С‚РѕРј, РєР°Рє СЌС‚Рё СЃС‚Р°С‚СЊРё СЃРѕРѕС‚РЅРѕСЃСЏС‚СЃСЏ РґСЂСѓРі СЃ РґСЂСѓРіРѕРј. Р”РѕРїРѕР»РЅСЏСЋС‚ Р»Рё РѕРЅРё РґСЂСѓРі РґСЂСѓРіР°, СЃРїРѕСЂСЏС‚ РёР»Рё СЂР°СЃСЃРјР°С‚СЂРёРІР°СЋС‚ РѕРґРЅСѓ Рё С‚Сѓ Р¶Рµ РїСЂРѕР±Р»РµРјСѓ СЃ СЂР°Р·РЅС‹С… СЃС‚РѕСЂРѕРЅ?
-
-РўРІРѕР№ РѕС‚РІРµС‚ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РѕР±СЉРµРєС‚РёРІРЅС‹Рј, РїРѕРґСЂРѕР±РЅС‹Рј Рё РѕСЃРЅРѕРІР°РЅРЅС‹Рј РёСЃРєР»СЋС‡РёС‚РµР»СЊРЅРѕ РЅР° РїСЂРµРґРѕСЃС‚Р°РІР»РµРЅРЅС‹С… С‚РµРєСЃС‚Р°С….
+    const prompt = `Ты — эксперт по анализу научных работ. Проведи детальное сравнение статей.
+В ответе в формате markdown укажи:
+1. **Общие темы и выводы** для всех статей.
+2. **Различия в методологии** в виде таблицы с колонками "Параметр сравнения", ${articleTitles}.
+3. **Противоречия и разные выводы**.
+4. **Итоговое резюме** о том, как статьи соотносятся.
 
 ${articlesContext}
 `;
 
     try {
-        const response = await ai.models.generateContent({
-            model: modelName,
-            contents: prompt,
-        });
-        return response.text;
+        const answer = await callOpenRouter(THINK_MODEL, [
+            { role: "system", content: "Ты аналитик научных текстов. Всегда отвечай в формате Markdown." },
+            { role: "user", content: prompt },
+        ]);
+        return answer;
     } catch (error) {
-        console.error("Error generating comparison from Gemini:", error);
+        console.error("Error generating comparison via OpenRouter:", error);
         if (error instanceof Error) {
-            return `РќРµ СѓРґР°Р»РѕСЃСЊ СЃРіРµРЅРµСЂРёСЂРѕРІР°С‚СЊ СЃСЂР°РІРЅРµРЅРёРµ: ${error.message}`;
+            return `Не удалось сгенерировать сравнение: ${error.message}`;
         }
-        return "РџСЂРѕРёР·РѕС€Р»Р° РЅРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР° РїСЂРё СЃСЂР°РІРЅРµРЅРёРё СЃС‚Р°С‚РµР№.";
+        return "Произошла неизвестная ошибка при сравнении статей.";
     }
 }

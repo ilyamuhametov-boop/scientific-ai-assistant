@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ThinkingIcon } from './Icons';
 import { auth } from '../services/firebase';
+import { SmartCaptcha } from '@yandex/smart-captcha';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
 type AuthMode = 'login' | 'register';
@@ -12,6 +13,13 @@ export const Login: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaInstanceKey, setCaptchaInstanceKey] = useState(0);
+
+  const resetCaptcha = () => {
+    setCaptchaToken(null);
+    setCaptchaInstanceKey((prev) => prev + 1);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,6 +27,11 @@ export const Login: React.FC = () => {
 
     if (mode === 'register' && password !== confirmPassword) {
       setError('Пароли не совпадают.');
+      return;
+    }
+
+     if (!captchaToken) {
+      setError('Подтвердите, что вы не робот.');
       return;
     }
 
@@ -35,6 +48,7 @@ export const Login: React.FC = () => {
         message = err.message;
       }
       setError(message);
+      resetCaptcha();
     } finally {
       setIsSubmitting(false);
     }
@@ -43,7 +57,10 @@ export const Login: React.FC = () => {
   const toggleMode = () => {
     setMode((prev) => (prev === 'login' ? 'register' : 'login'));
     setError('');
+    resetCaptcha();
   };
+
+  const siteKey = process.env.SMARTCAPTCHA_CLIENT_KEY;
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 font-sans px-4">
@@ -110,10 +127,27 @@ export const Login: React.FC = () => {
             <p className="text-center text-sm text-red-500">{error}</p>
           )}
 
+          <div className="flex justify-center">
+            <SmartCaptcha
+              key={captchaInstanceKey}
+              sitekey={siteKey || ''}
+              language="ru"
+              onSuccess={(token) => {
+                setCaptchaToken(token);
+                setError('');
+              }}
+              onTokenExpired={() => setCaptchaToken(null)}
+              onNetworkError={() => setError('Ошибка сети при проверке капчи. Попробуйте ещё раз.')}
+              onJavascriptError={(err) =>
+                setError(`SmartCaptcha: ${err.message || 'неизвестная ошибка'}`)
+              }
+            />
+          </div>
+
           <div className="space-y-3">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !captchaToken}
               className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors duration-200"
             >
               {mode === 'login' ? 'Войти' : 'Зарегистрироваться'}
