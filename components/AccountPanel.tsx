@@ -19,24 +19,24 @@ const plans: Array<{
   {
     id: 'free',
     title: 'Free',
-    price: '0 ₽ / мес',
-    description: 'Базовый доступ к анализу PDF и личной библиотеке.',
+    price: '0 ₽ / месяц',
+    description: 'Базовый доступ к загрузке PDF и личной библиотеке.',
     features: [
       'Загрузка PDF до 10 МБ',
-      'Чат с ИИ и быстрые действия',
+      'Чат и ответы без гарантий скорости',
       'Личная библиотека и рабочее пространство',
     ],
   },
   {
     id: 'pro',
     title: 'Pro',
-    price: '990 ₽ / мес',
-    description: 'Расширенные лимиты и приоритетные ответы ИИ.',
+    price: '990 ₽ / месяц',
+    description: 'Ускоренные ответы и расширенные возможности ИИ.',
     features: [
       'Все возможности Free',
-      'Расширенный лимит на документы и историю',
-      'Приоритетные ответы и графы знаний',
-      'Экспорт сравнений и отчетов',
+      'Приоритетные ответы и больше токенов',
+      'Расширенные модели ИИ',
+      'Графы и сравнения без лимитов',
     ],
   },
 ];
@@ -51,7 +51,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ user, plan, onPlanCh
         <div>
           <p className="text-sm text-gray-500 dark:text-gray-400">Аккаунт</p>
           <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{user.email || user.displayName || 'Пользователь'}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Текущий план: {plan === 'pro' ? 'Pro' : 'Free'}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Текущий тариф: {plan === 'pro' ? 'Pro' : 'Free'}</p>
         </div>
       </header>
 
@@ -59,7 +59,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ user, plan, onPlanCh
         <section>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Тарифы</h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-            Переключайтесь между планами в любой момент. Pro открывает дополнительные возможности для исследований и совместной работы.
+            Выберите подходящий тариф. Pro даёт приоритетные ответы и расширенные лимиты.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {plans.map((planOption) => {
@@ -75,7 +75,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ user, plan, onPlanCh
                     <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-50">{planOption.title}</h3>
                     {isActive && (
                       <span className="text-xs font-semibold px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-100">
-                        Активен
+                        Активно
                       </span>
                     )}
                   </div>
@@ -98,7 +98,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ user, plan, onPlanCh
                     onClick={() => onPlanChange(planOption.id)}
                     disabled={isActive}
                   >
-                    {isActive ? 'Текущий план' : 'Перейти на план'}
+                    {isActive ? 'Тариф активен' : 'Перейти на тариф'}
                   </button>
                 </div>
               );

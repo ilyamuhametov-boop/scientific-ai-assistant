@@ -437,30 +437,51 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen font-sans bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-      <header className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+            <header className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
         <div className="flex items-center space-x-3">
           {currentView !== 'chat' ? (
-              <button onClick={() => setCurrentView('chat')} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-                <BackIcon className="w-6 h-6" />
-              </button>
+            <button onClick={() => setCurrentView('chat')} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+              <BackIcon className="w-6 h-6" />
+            </button>
           ) : (
             <ThinkingIcon className="w-8 h-8 text-indigo-500" />
           )}
-          <h1 className="text-xl font-bold">
-            {renderHeaderTitle()}
-          </h1>
+          <h1 className="text-xl font-bold">{renderHeaderTitle()}</h1>
         </div>
         <div className="flex items-center space-x-2">
-           <button onClick={handleThemeToggle} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors" title={getThemeTooltip()}>
+          <button
+            onClick={handleThemeToggle}
+            className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors"
+            title={getThemeTooltip()}
+          >
             {renderThemeIcon()}
           </button>
-          <button onClick={() => setCurrentView('library')} className={`p-2 rounded-full ${currentView === 'library' ? 'bg-gray-200 dark:bg-gray-700' : ''} text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors`} title='Открыть библиотеку'>
+          <button
+            onClick={() => setCurrentView('library')}
+            className={`p-2 rounded-full ${currentView === 'library' ? 'bg-gray-200 dark:bg-gray-700' : ''} text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors`}
+            title="Открыть библиотеку"
+          >
             <LibraryIcon className="w-6 h-6" />
           </button>
-          <button onClick={() => setCurrentView('workspace')} className={`p-2 rounded-full ${currentView === 'workspace' ? 'bg-gray-200 dark:bg-gray-700' : ''} text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors`} title='Открыть общее пространство'>
+          <button
+            onClick={() => setCurrentView('workspace')}
+            className={`p-2 rounded-full ${currentView === 'workspace' ? 'bg-gray-200 dark:bg-gray-700' : ''} text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors`}
+            title="Открыть рабочее пространство"
+          >
             <WorkspaceIcon className="w-6 h-6" />
           </button>
-          <button onClick={handleLogout} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors" title="Выйти">
+          <button
+            onClick={() => setCurrentView('account')}
+            className={`p-2 rounded-full ${currentView === 'account' ? 'bg-gray-200 dark:bg-gray-700' : ''} text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors`}
+            title="Личный кабинет"
+          >
+            <UserIcon className="w-6 h-6" />
+          </button>
+          <button
+            onClick={handleLogout}
+            className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors"
+            title="Выйти"
+          >
             <LogoutIcon className="w-6 h-6" />
           </button>
         </div>
@@ -532,6 +553,8 @@ const App: React.FC = () => {
 };
 
 export default App;
+
+
 
 
 
