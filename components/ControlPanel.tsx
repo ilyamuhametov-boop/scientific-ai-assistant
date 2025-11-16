@@ -18,7 +18,7 @@ const ActionButton: React.FC<{ icon: React.ReactNode; text: string; onClick: () 
     <button
         onClick={onClick}
         disabled={disabled}
-        className="w-full flex items-center text-left p-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+        className="w-full flex items-center text-left px-4 py-3 rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-800/60 backdrop-blur shadow-sm text-gray-800 dark:text-gray-100 hover:-translate-y-0.5 hover:shadow-md hover:bg-white dark:hover:bg-gray-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
     >
         {icon}
         <span className="ml-3">{text}</span>
@@ -55,9 +55,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const isWritingToolDisabled = !textToCheck.trim() || appState === AppState.GENERATING;
 
   return (
-    <aside className="w-full md:w-96 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-6 flex flex-col space-y-6 overflow-y-auto">
+    <aside className="w-full md:w-96 bg-gradient-to-b from-gray-50/90 via-white/90 to-gray-100/90 dark:from-gray-900/80 dark:via-gray-900/70 dark:to-gray-900/80 border-r border-gray-200/80 dark:border-gray-800/80 p-6 flex flex-col space-y-6 overflow-y-auto backdrop-blur">
       <div>
-        <h2 className="text-lg font-semibold mb-3">Документ</h2>
+        <h2 className="text-lg font-semibold mb-3 tracking-tight text-gray-900 dark:text-gray-50">Документ</h2>
         <input
             type="file"
             ref={fileInputRef}
@@ -69,7 +69,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         <button
           onClick={handleUploadClick}
           disabled={appState === AppState.PROCESSING_PDF || appState === AppState.GENERATING}
-          className="w-full flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-wait"
+          className="w-full flex flex-col items-center justify-center p-6 rounded-2xl border border-dashed border-gray-300/90 dark:border-gray-700 bg-white/70 dark:bg-gray-800/60 backdrop-blur hover:border-indigo-300 hover:bg-indigo-50/80 dark:hover:bg-gray-700 transition duration-200 disabled:opacity-60 disabled:cursor-wait shadow-sm"
         >
           {appState === AppState.PROCESSING_PDF ? (
               <LoadingIcon className="w-8 h-8 text-indigo-500 animate-spin mb-2"/>
@@ -83,7 +83,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </button>
 
         {pdfFile && (
-            <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg flex items-center space-x-3">
+            <div className="mt-4 p-3 rounded-xl bg-indigo-50/80 dark:bg-indigo-900/30 border border-indigo-200/70 dark:border-indigo-700/60 flex items-center space-x-3 shadow-sm">
                 <FileIcon className="w-6 h-6 text-indigo-500 flex-shrink-0" />
                 <p className="text-sm font-medium text-indigo-800 dark:text-indigo-200 truncate" title={pdfFile.name}>{pdfFile.name}</p>
             </div>
@@ -91,7 +91,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       </div>
       
        <div>
-        <h2 className="text-lg font-semibold mb-3">Инструменты для письма</h2>
+        <h2 className="text-lg font-semibold mb-3 tracking-tight text-gray-900 dark:text-gray-50">Инструменты для письма</h2>
         <textarea
             value={textToCheck}
             onChange={(e) => setTextToCheck(e.target.value)}
@@ -116,7 +116,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       </div>
 
       <div>
-        <h2 className="text-lg font-semibold mb-3">Быстрые действия</h2>
+        <h2 className="text-lg font-semibold mb-3 tracking-tight text-gray-900 dark:text-gray-50">Быстрые действия</h2>
         <div className="space-y-2">
             <ActionButton 
                 icon={<SaveIcon className="w-5 h-5"/>}
@@ -146,7 +146,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       </div>
 
       <div>
-        <h2 className="text-lg font-semibold mb-3">Поиск в Интернете</h2>
+        <h2 className="text-lg font-semibold mb-3 tracking-tight text-gray-900 dark:text-gray-50">Поиск в Интернете</h2>
         <div className="space-y-2">
             <ActionButton 
                 icon={<GoogleIcon className="w-5 h-5"/>}
@@ -164,7 +164,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       </div>
       
       <div>
-        <h2 className="text-lg font-semibold mb-3">Инструменты цитирования</h2>
+        <h2 className="text-lg font-semibold mb-3 tracking-tight text-gray-900 dark:text-gray-50">Инструменты цитирования</h2>
         <div className="space-y-2">
             <ActionButton 
                 icon={<CitationIcon className="w-5 h-5"/>}
@@ -188,7 +188,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       </div>
 
       <div>
-        <h2 className="text-lg font-semibold mb-3">Инструменты визуализации</h2>
+        <h2 className="text-lg font-semibold mb-3 tracking-tight text-gray-900 dark:text-gray-50">Инструменты визуализации</h2>
         <div className="space-y-2">
             <ActionButton 
                 icon={<ConceptMapIcon className="w-5 h-5"/>}
@@ -216,7 +216,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             <LightbulbIcon className="w-5 h-5 mr-2 text-yellow-400"/>
             Расширенный режим
         </h2>
-        <div className="flex items-center justify-between p-3 bg-gray-200 dark:bg-gray-700 rounded-lg">
+        <div className="flex items-center justify-between p-3 rounded-xl border border-gray-200/80 dark:border-gray-700/70 bg-white/70 dark:bg-gray-800/70 backdrop-blur shadow-sm">
             <div>
                 <p className="font-semibold text-sm">Сложные запросы</p>
                 <p className="text-xs text-gray-600 dark:text-gray-400">Используйте более мощную модель для глубокого анализа.</p>
@@ -230,3 +230,5 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     </aside>
   );
 };
+
+

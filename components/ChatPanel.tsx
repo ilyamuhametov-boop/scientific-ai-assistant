@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, AppState } from '../types';
 import { Message } from './Message';
 import { SendIcon, LoadingIcon } from './Icons';
@@ -91,7 +91,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={isPdfLoaded ? "Задайте вопрос об открытой статье..." : "Задайте вопрос или начните черновик..."}
+              placeholder={isPdfLoaded ? "Спросите что угодно по загруженной статье..." : "Спросите что угодно, я отвечу без PDF-контекста"}
               disabled={isInputDisabled}
               className="flex-1 p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-200 disabled:opacity-50"
             />
@@ -108,3 +108,4 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     </main>
   );
 };
+

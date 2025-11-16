@@ -159,9 +159,14 @@ export const Login: React.FC = () => {
             >
               {mode === 'login' ? 'Нет аккаунта? Зарегистрируйтесь' : 'Уже есть аккаунт? Войдите'}
             </button>
+            <p className="text-xs text-center text-gray-600 dark:text-gray-400">
+              Регистрируясь или входя, вы принимаете <a className="text-indigo-600 underline" href="/privacy.html">политику конфиденциальности</a>, <a className="text-indigo-600 underline" href="/cookies.html">политику cookies</a> и <a className="text-indigo-600 underline" href="/consent.html">согласие на обработку персональных данных</a>.
+            </p>
           </div>
         </form>
       </div>
     </div>
   );
 };
+
+

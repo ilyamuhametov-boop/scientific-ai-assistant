@@ -1,4 +1,4 @@
-﻿import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ChatPanel } from './components/ChatPanel';
 import { ControlPanel } from './components/ControlPanel';
 import { LibraryPanel } from './components/LibraryPanel';
@@ -54,6 +54,9 @@ const App: React.FC = () => {
   const [isComparisonModalOpen, setIsComparisonModalOpen] = useState<boolean>(false);
   const [comparisonResult, setComparisonResult] = useState<string | null>(null);
   const [isComparing, setIsComparing] = useState<boolean>(false);
+  const [isCookieBannerVisible, setIsCookieBannerVisible] = useState<boolean>(() => {
+    return !localStorage.getItem('scholarly-ai-cookie-consent');
+  });
 
   const [theme, setTheme] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem('scholarly-ai-theme');
@@ -117,6 +120,16 @@ const App: React.FC = () => {
       setAppState(AppState.IDLE);
       setIsThinkingMode(false);
   }, []);
+
+  const acceptCookies = () => {
+    localStorage.setItem('scholarly-ai-cookie-consent', 'accepted');
+    setIsCookieBannerVisible(false);
+  };
+
+  const declineCookies = () => {
+    localStorage.setItem('scholarly-ai-cookie-consent', 'declined');
+    setIsCookieBannerVisible(false);
+  };
 
   // Load library & workspace per user on auth change
   useEffect(() => {
@@ -422,12 +435,12 @@ const App: React.FC = () => {
 
   const isCurrentFileInLibrary = pdfFile ? library.some(a => a.id === `${pdfFile.name}-${pdfFile.size}`) : false;
 
-    const renderHeaderTitle = () => {
+  const renderHeaderTitle = () => {
     switch (currentView) {
       case 'library':
-        return 'My Library';
+        return 'Библиотека';
       case 'workspace':
-        return 'Workspace';
+        return 'Рабочее пространство';
       case 'account':
         return 'Личный кабинет';
       default:
@@ -437,56 +450,62 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen font-sans bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-            <header className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+      <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-gray-900/80 backdrop-blur shadow-sm">
         <div className="flex items-center space-x-3">
           {currentView !== 'chat' ? (
-            <button onClick={() => setCurrentView('chat')} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+            <button onClick={() => setCurrentView('chat')} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors">
               <BackIcon className="w-6 h-6" />
             </button>
           ) : (
-            <ThinkingIcon className="w-8 h-8 text-indigo-500" />
+            <div className="flex items-center space-x-2">
+              <ThinkingIcon className="w-7 h-7 text-indigo-500" />
+            </div>
           )}
-          <h1 className="text-xl font-bold">{renderHeaderTitle()}</h1>
+          <h1 className="text-xl font-semibold">{renderHeaderTitle()}</h1>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-3 bg-gray-50/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-full px-3 py-2 shadow-sm">
           <button
             onClick={handleThemeToggle}
-            className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors"
+            className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none transition-colors"
             title={getThemeTooltip()}
           >
             {renderThemeIcon()}
           </button>
-          <button
-            onClick={() => setCurrentView('library')}
-            className={`p-2 rounded-full ${currentView === 'library' ? 'bg-gray-200 dark:bg-gray-700' : ''} text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors`}
-            title="Открыть библиотеку"
-          >
-            <LibraryIcon className="w-6 h-6" />
-          </button>
-          <button
-            onClick={() => setCurrentView('workspace')}
-            className={`p-2 rounded-full ${currentView === 'workspace' ? 'bg-gray-200 dark:bg-gray-700' : ''} text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors`}
-            title="Открыть рабочее пространство"
-          >
-            <WorkspaceIcon className="w-6 h-6" />
-          </button>
-          <button
-            onClick={() => setCurrentView('account')}
-            className={`p-2 rounded-full ${currentView === 'account' ? 'bg-gray-200 dark:bg-gray-700' : ''} text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors`}
-            title="Личный кабинет"
-          >
-            <UserIcon className="w-6 h-6" />
-          </button>
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={() => setCurrentView('library')}
+              className={`flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium transition-colors ${currentView === 'library' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+              title="Открыть библиотеку"
+            >
+              <LibraryIcon className="w-5 h-5" />
+              <span>Библиотека</span>
+            </button>
+            <button
+              onClick={() => setCurrentView('workspace')}
+              className={`flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium transition-colors ${currentView === 'workspace' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+              title="Открыть рабочее пространство"
+            >
+              <WorkspaceIcon className="w-5 h-5" />
+              <span>Работа</span>
+            </button>
+            <button
+              onClick={() => setCurrentView('account')}
+              className={`flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium transition-colors ${currentView === 'account' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+              title="Личный кабинет"
+            >
+              <UserIcon className="w-5 h-5" />
+              <span>Профиль</span>
+            </button>
+          </div>
           <button
             onClick={handleLogout}
-            className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors"
+            className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none transition-colors"
             title="Выйти"
           >
             <LogoutIcon className="w-6 h-6" />
           </button>
         </div>
       </header>
-      
       {currentView === 'chat' && (
         <div className="flex flex-1 overflow-hidden">
             <ControlPanel
@@ -530,13 +549,45 @@ const App: React.FC = () => {
             onLoadArticle={handleLoadFromLibrary}
         />
       )}
-       {currentView === 'account' && currentUser && (
-        <AccountPanel
-            user={currentUser}
-            plan={userPlan}
-            onPlanChange={handlePlanChange}
-        />
+      {currentView === 'account' && currentUser && (
+       <AccountPanel
+           user={currentUser}
+           plan={userPlan}
+           onPlanChange={handlePlanChange}
+       />
       )}
+
+      {isCookieBannerVisible && (
+        <div className="fixed bottom-4 left-4 right-4 md:right-auto md:max-w-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-lg p-4 space-y-3 z-40">
+          <p className="text-sm text-gray-800 dark:text-gray-100">
+            Мы используем cookies, чтобы улучшить работу сервиса. Подробнее в <a className="text-indigo-600 underline" href="/cookies.html">политике cookies</a>.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={acceptCookies}
+              className="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+            >
+              Принять
+            </button>
+            <button
+              onClick={declineCookies}
+              className="px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              Отклонить
+            </button>
+          </div>
+        </div>
+      )}
+
+      <footer className="mt-auto border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 text-sm text-gray-700 dark:text-gray-300 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        <span>© {new Date().getFullYear()} Научный ИИ-ассистент</span>
+        <div className="flex flex-wrap gap-4">
+          <a className="text-indigo-600 underline" href="/privacy.html">Политика конфиденциальности</a>
+          <a className="text-indigo-600 underline" href="/cookies.html">Политика cookies</a>
+          <a className="text-indigo-600 underline" href="/consent.html">Согласие на обработку персональных данных</a>
+        </div>
+      </footer>
+
      <GraphModal 
         isOpen={isGraphModalOpen}
         onClose={() => setIsGraphModalOpen(false)}
@@ -553,6 +604,9 @@ const App: React.FC = () => {
 };
 
 export default App;
+
+
+
 
 
 
