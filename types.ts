@@ -1,4 +1,4 @@
-export interface ChatMessage {
+﻿export interface ChatMessage {
   id: string;
   text: string;
   sender: 'user' | 'bot';
@@ -26,17 +26,17 @@ export interface Comment {
 }
 
 export interface LibraryArticle {
-  id: string; // Composite key: `${fileName}-${fileSize}`
+  id: string;
   fileName: string;
-  fileDataUrl: string; // Store file content as a base64 Data URL
+  fileDataUrl: string;
   pdfText: string;
   tags: string[];
-  rating: number; // 0-5
+  rating: number;
   notes: string;
-  dateAdded: string; // ISO string
-  reminderDate?: string; // Optional: ISO string for the reminder
-  reminderNote?: string; // Optional: A short note for the reminder
-  comments?: Comment[]; // Optional: for shared workspace
+  dateAdded: string;
+  reminderDate?: string;
+  reminderNote?: string;
+  comments?: Comment[];
 }
 
 export interface GraphNode {
@@ -60,3 +60,6 @@ export interface ComparisonArticle {
   fileName: string;
   pdfText: string;
 }
+
+export type UserPlan = 'free' | 'pro';
+export type UserPlan = 'free' | 'pro';

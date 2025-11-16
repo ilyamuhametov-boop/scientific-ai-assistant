@@ -1,4 +1,4 @@
-п»їimport React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ChatPanel } from './components/ChatPanel';
 import { ControlPanel } from './components/ControlPanel';
 import { LibraryPanel } from './components/LibraryPanel';
@@ -7,32 +7,13 @@ import { GraphModal } from './components/GraphModal';
 import { ComparisonModal } from './components/ComparisonModal';
 import { AccountPanel } from './components/AccountPanel';
 import { extractTextFromPdf } from './services/pdfService';
-import { generateResponse, generateGraphData, generateComparison, CHAT_MODEL_OPTIONS } from './services/geminiService';
+import { generateResponse, generateGraphData, generateComparison } from './services/geminiService';
 import { fileToDataUrl, dataUrlToBlob } from './services/fileService';
 import { ChatMessage, AppState, LibraryArticle, GraphData, ComparisonArticle, Theme, UserPlan } from './types';
 import { ThinkingIcon, LogoutIcon, LibraryIcon, BackIcon, WorkspaceIcon, SunIcon, MoonIcon, SystemIcon, UserIcon } from './components/Icons';
 import { Login } from './components/Login';
 import { auth } from './services/firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-
-type ModelOption = { id: string; label: string };
-
-const MODEL_STORAGE_KEY = 'scholarly-ai-chat-model';
-const DEFAULT_MODEL_OPTION: ModelOption = {
-  id: 'auto',
-  label: 'РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРёР№ РІС‹Р±РѕСЂ (СЂРµР¶РёРј РјС‹С€Р»РµРЅРёСЏ)',
-};
-
-const CHAT_MODEL_OPTION_LIST: ModelOption[] = (() => {
-  const unique = new Map<string, ModelOption>();
-  CHAT_MODEL_OPTIONS.forEach(option => {
-    unique.set(option.id, { id: option.id, label: option.label });
-  });
-  return [DEFAULT_MODEL_OPTION, ...Array.from(unique.values())];
-})();
-
-const getLibraryKey = (uid: string) => `scholarly-ai-library-${uid}`;
-const getWorkspaceKey = (uid: string) => `scholarly-ai-workspace-${uid}`;
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -64,14 +45,6 @@ const App: React.FC = () => {
     const savedPlan = localStorage.getItem('scholarly-ai-plan');
     return savedPlan === 'pro' ? 'pro' : 'free';
   });
-
-  const [chatModel, setChatModel] = useState<string>(() => {
-    return localStorage.getItem(MODEL_STORAGE_KEY) || DEFAULT_MODEL_OPTION.id;
-  });
-
-  useEffect(() => {
-    localStorage.setItem(MODEL_STORAGE_KEY, chatModel);
-  }, [chatModel]);
 
   useEffect(() => {
     localStorage.setItem('scholarly-ai-plan', userPlan);
@@ -110,7 +83,7 @@ const App: React.FC = () => {
       setMessages([
         {
           id: 'initial',
-          text: 'Р”РѕР±СЂРѕ РїРѕР¶Р°Р»РѕРІР°С‚СЊ! Р’С‹ РјРѕР¶РµС‚Рµ Р·Р°РґР°С‚СЊ РјРЅРµ Р»СЋР±РѕР№ РІРѕРїСЂРѕСЃ РёР»Рё Р·Р°РіСЂСѓР·РёС‚СЊ PDF-СЃС‚Р°С‚СЊСЋ РґР»СЏ Р°РЅР°Р»РёР·Р°.',
+          text: 'Добро пожаловать! Вы можете задать мне любой вопрос или загрузить PDF-статью для анализа.',
           sender: 'bot'
         }
       ]);
@@ -118,48 +91,40 @@ const App: React.FC = () => {
       setIsThinkingMode(false);
   }, []);
 
-  // Load library & workspace per user on auth change
+  // Load library & workspace from localStorage on initial mount
   useEffect(() => {
-    if (!currentUser) {
-      setLibrary([]);
-      setWorkspace([]);
-      resetState();
-      return;
-    }
-
     try {
-      const savedLibrary = localStorage.getItem(getLibraryKey(currentUser.uid));
-      setLibrary(savedLibrary ? JSON.parse(savedLibrary) : []);
-
-      const savedWorkspace = localStorage.getItem(getWorkspaceKey(currentUser.uid));
-      setWorkspace(savedWorkspace ? JSON.parse(savedWorkspace) : []);
+      const savedLibrary = localStorage.getItem('scholarly-ai-library');
+      if (savedLibrary) {
+        setLibrary(JSON.parse(savedLibrary));
+      }
+      const savedWorkspace = localStorage.getItem('scholarly-ai-workspace');
+      if (savedWorkspace) {
+        setWorkspace(JSON.parse(savedWorkspace));
+      }
     } catch (e) {
       console.error("Failed to load data from localStorage", e);
-      setLibrary([]);
-      setWorkspace([]);
     }
     resetState();
-  }, [currentUser, resetState]);
+  }, [resetState]);
 
-  // Save library to localStorage whenever it changes (per user)
+  // Save library to localStorage whenever it changes
   useEffect(() => {
-    if (!currentUser) return;
     try {
-      localStorage.setItem(getLibraryKey(currentUser.uid), JSON.stringify(library));
+      localStorage.setItem('scholarly-ai-library', JSON.stringify(library));
     } catch (e) {
       console.error("Failed to save library to localStorage", e);
     }
-  }, [library, currentUser]);
+  }, [library]);
   
-  // Save workspace to localStorage whenever it changes (per user)
+  // Save workspace to localStorage whenever it changes
   useEffect(() => {
-    if (!currentUser) return;
     try {
-      localStorage.setItem(getWorkspaceKey(currentUser.uid), JSON.stringify(workspace));
+      localStorage.setItem('scholarly-ai-workspace', JSON.stringify(workspace));
     } catch (e) {
       console.error("Failed to save workspace to localStorage", e);
     }
-  }, [workspace, currentUser]);
+  }, [workspace]);
 
   // Check for reminders periodically
   useEffect(() => {
@@ -168,7 +133,7 @@ const App: React.FC = () => {
         library.forEach(article => {
             if (article.reminderDate && new Date(article.reminderDate) <= now) {
                 // Trigger reminder
-                alert(`РќР°РїРѕРјРёРЅР°РЅРёРµ РґР»СЏ "${article.fileName}":\n${article.reminderNote || 'Р’СЂРµРјСЏ РїСЂРѕСЃРјРѕС‚СЂРµС‚СЊ СЌС‚Сѓ СЃС‚Р°С‚СЊСЋ!'}`);
+                alert(`Напоминание для "${article.fileName}":\n${article.reminderNote || 'Время просмотреть эту статью!'}`);
                 
                 // Clear the reminder after it has been triggered
                 const updatedArticle: LibraryArticle = { ...article };
@@ -201,8 +166,8 @@ const App: React.FC = () => {
     try {
         await signOut(auth);
     } catch (e) {
-        const errorMsg = e instanceof Error ? e.message : 'РќРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР°.';
-        setError(`РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹Р№С‚Рё: ${errorMsg}`);
+        const errorMsg = e instanceof Error ? e.message : 'Неизвестная ошибка.';
+        setError(`Не удалось выйти: ${errorMsg}`);
     }
   };
 
@@ -215,18 +180,18 @@ const App: React.FC = () => {
     setAppState(AppState.PROCESSING_PDF);
     setError(null);
     setPdfFile(file);
-    setMessages([{ id: Date.now().toString(), text: `РћР±СЂР°Р±РѕС‚РєР° ${file.name}...`, sender: 'bot' }]);
+    setMessages([{ id: Date.now().toString(), text: `Обработка ${file.name}...`, sender: 'bot' }]);
     
     try {
       const text = await extractTextFromPdf(file);
       setPdfText(text);
       setAppState(AppState.READY);
-      setMessages(prev => [...prev, { id: Date.now().toString() + '2', text: `"${file.name}" СѓСЃРїРµС€РЅРѕ РїСЂРѕР°РЅР°Р»РёР·РёСЂРѕРІР°РЅ. РўРµРїРµСЂСЊ РІС‹ РјРѕР¶РµС‚Рµ Р·Р°РґР°РІР°С‚СЊ РІРѕРїСЂРѕСЃС‹, РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ Р±С‹СЃС‚СЂС‹Рµ РґРµР№СЃС‚РІРёСЏ РёР»Рё СЃРѕС…СЂР°РЅРёС‚СЊ СЃС‚Р°С‚СЊСЋ РІ Р±РёР±Р»РёРѕС‚РµРєСѓ.`, sender: 'bot' }]);
+      setMessages(prev => [...prev, { id: Date.now().toString() + '2', text: `"${file.name}" успешно проанализирован. Теперь вы можете задавать вопросы, использовать быстрые действия или сохранить статью в библиотеку.`, sender: 'bot' }]);
     } catch (e) {
-      const errorMsg = e instanceof Error ? e.message : 'РџСЂРѕРёР·РѕС€Р»Р° РЅРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР° РїСЂРё РѕР±СЂР°Р±РѕС‚РєРµ PDF.';
+      const errorMsg = e instanceof Error ? e.message : 'Произошла неизвестная ошибка при обработке PDF.';
       setError(errorMsg);
       setAppState(AppState.ERROR);
-      setMessages(prev => [...prev, { id: Date.now().toString() + 'err', text: `РћС€РёР±РєР°: ${errorMsg}`, sender: 'bot' }]);
+      setMessages(prev => [...prev, { id: Date.now().toString() + 'err', text: `Ошибка: ${errorMsg}`, sender: 'bot' }]);
       setPdfFile(null);
       setPdfText(null);
     }
@@ -247,36 +212,35 @@ const App: React.FC = () => {
     
     try {
       const context = isContextFree ? null : pdfText;
-      const selectedModelOverride = chatModel === DEFAULT_MODEL_OPTION.id ? undefined : chatModel;
-      const responseText = await generateResponse(prompt, context, isThinkingMode, useGrounding, selectedModelOverride);
+      const responseText = await generateResponse(prompt, context, isThinkingMode, useGrounding);
       const botMessage: ChatMessage = { id: Date.now().toString() + 'bot', text: responseText, sender: 'bot' };
       setMessages(prev => [...prev, botMessage]);
     } catch (e) {
-      const errorMsg = e instanceof Error ? e.message : 'РџСЂРѕРёР·РѕС€Р»Р° РЅРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР° РїСЂРё РѕР±СЂР°С‰РµРЅРёРё Рє РР.';
+      const errorMsg = e instanceof Error ? e.message : 'Произошла неизвестная ошибка при обращении к ИИ.';
       setError(errorMsg);
-      const botError: ChatMessage = { id: Date.now().toString() + 'boterr', text: `РР·РІРёРЅРёС‚Рµ, СЏ СЃС‚РѕР»РєРЅСѓР»СЃСЏ СЃ РѕС€РёР±РєРѕР№: ${errorMsg}`, sender: 'bot' };
+      const botError: ChatMessage = { id: Date.now().toString() + 'boterr', text: `Извините, я столкнулся с ошибкой: ${errorMsg}`, sender: 'bot' };
       setMessages(prev => [...prev, botError]);
     } finally {
       setAppState(pdfText ? AppState.READY : AppState.IDLE);
     }
-  }, [pdfText, appState, isThinkingMode, chatModel]);
+  }, [pdfText, appState, isThinkingMode]);
 
   const handleGenerateGraph = useCallback(async () => {
     if (!pdfText || appState === AppState.GENERATING) return;
 
     setError(null);
     setAppState(AppState.GENERATING);
-    setMessages(prev => [...prev, { id: Date.now().toString() + 'graph-req', text: 'Р—Р°РїСЂРѕСЃ РЅР° РїРѕСЃС‚СЂРѕРµРЅРёРµ РіСЂР°С„Р° Р·РЅР°РЅРёР№...', sender: 'user' }]);
+    setMessages(prev => [...prev, { id: Date.now().toString() + 'graph-req', text: 'Запрос на построение графа знаний...', sender: 'user' }]);
 
     try {
         const data = await generateGraphData(pdfText);
         setGraphData(data);
         setIsGraphModalOpen(true);
-        setMessages(prev => [...prev, { id: Date.now().toString() + 'graph-res', text: 'Р“СЂР°С„ Р·РЅР°РЅРёР№ СѓСЃРїРµС€РЅРѕ СЃРѕР·РґР°РЅ Рё РіРѕС‚РѕРІ Рє РїСЂРѕСЃРјРѕС‚СЂСѓ.', sender: 'bot' }]);
+        setMessages(prev => [...prev, { id: Date.now().toString() + 'graph-res', text: 'Граф знаний успешно создан и готов к просмотру.', sender: 'bot' }]);
     } catch (e) {
-        const errorMsg = e instanceof Error ? e.message : 'РџСЂРѕРёР·РѕС€Р»Р° РЅРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё РіСЂР°С„Р°.';
+        const errorMsg = e instanceof Error ? e.message : 'Произошла неизвестная ошибка при создании графа.';
         setError(errorMsg);
-        setMessages(prev => [...prev, { id: Date.now().toString() + 'graph-err', text: `РћС€РёР±РєР°: ${errorMsg}`, sender: 'bot' }]);
+        setMessages(prev => [...prev, { id: Date.now().toString() + 'graph-err', text: `Ошибка: ${errorMsg}`, sender: 'bot' }]);
     } finally {
         setAppState(pdfText ? AppState.READY : AppState.IDLE);
     }
@@ -324,7 +288,7 @@ const App: React.FC = () => {
     setMessages([
         {
           id: 'initial-load',
-          text: `РЎС‚Р°С‚СЊСЏ "${article.fileName}" Р·Р°РіСЂСѓР¶РµРЅР° РёР· РІР°С€РµР№ Р±РёР±Р»РёРѕС‚РµРєРё. Р’С‹ РјРѕР¶РµС‚Рµ РїСЂРѕРґРѕР»Р¶РёС‚СЊ Р°РЅР°Р»РёР·.`,
+          text: `Статья "${article.fileName}" загружена из вашей библиотеки. Вы можете продолжить анализ.`,
           sender: 'bot'
         }
     ]);
@@ -364,8 +328,8 @@ const App: React.FC = () => {
         const result = await generateComparison(comparisonData);
         setComparisonResult(result);
     } catch (e) {
-        const errorMsg = e instanceof Error ? e.message : 'РџСЂРѕРёР·РѕС€Р»Р° РЅРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР° РїСЂРё СЃСЂР°РІРЅРµРЅРёРё СЃС‚Р°С‚РµР№.';
-        setComparisonResult(`**РћС€РёР±РєР°:**\n\nРќРµ СѓРґР°Р»РѕСЃСЊ РІС‹РїРѕР»РЅРёС‚СЊ СЃСЂР°РІРЅРµРЅРёРµ. ${errorMsg}`);
+        const errorMsg = e instanceof Error ? e.message : 'Произошла неизвестная ошибка при сравнении статей.';
+        setComparisonResult(`**Ошибка:**\n\nНе удалось выполнить сравнение. ${errorMsg}`);
     } finally {
         setIsComparing(false);
     }
@@ -397,11 +361,11 @@ const App: React.FC = () => {
   const getThemeTooltip = () => {
     switch (theme) {
         case Theme.LIGHT:
-            return 'РЎРІРµС‚Р»Р°СЏ С‚РµРјР°';
+            return 'Светлая тема';
         case Theme.DARK:
-            return 'РўРµРјРЅР°СЏ С‚РµРјР°';
+            return 'Темная тема';
         default:
-            return 'РЎРёСЃС‚РµРјРЅР°СЏ С‚РµРјР°';
+            return 'Системная тема';
     }
   }
 
@@ -410,7 +374,7 @@ const App: React.FC = () => {
       <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
         <div className="flex flex-col items-center space-y-4">
           <ThinkingIcon className="w-10 h-10 text-indigo-500 animate-spin" />
-          <p className="text-sm">Р—Р°РіСЂСѓР¶Р°РµРј РЅР°СЃС‚СЂРѕР№РєРё...</p>
+          <p className="text-sm">Загружаем настройки...</p>
         </div>
       </div>
     );
@@ -422,16 +386,12 @@ const App: React.FC = () => {
 
   const isCurrentFileInLibrary = pdfFile ? library.some(a => a.id === `${pdfFile.name}-${pdfFile.size}`) : false;
 
-    const renderHeaderTitle = () => {
-    switch (currentView) {
-      case 'library':
-        return 'My Library';
-      case 'workspace':
-        return 'Workspace';
-      case 'account':
-        return 'Р›РёС‡РЅС‹Р№ РєР°Р±РёРЅРµС‚';
-      default:
-        return 'РќР°СѓС‡РЅС‹Р№ РР-Р°СЃСЃРёСЃС‚РµРЅС‚';
+  const renderHeaderTitle = () => {
+    switch(currentView) {
+      case 'library': return 'My Library';
+      case 'workspace': return 'Workspace';
+      case 'account': return 'Личный кабинет';
+      default: return 'Scientific AI Assistant';
     }
   };
 
@@ -454,13 +414,13 @@ const App: React.FC = () => {
            <button onClick={handleThemeToggle} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors" title={getThemeTooltip()}>
             {renderThemeIcon()}
           </button>
-          <button onClick={() => setCurrentView('library')} className={`p-2 rounded-full ${currentView === 'library' ? 'bg-gray-200 dark:bg-gray-700' : ''} text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors`} title='РћС‚РєСЂС‹С‚СЊ Р±РёР±Р»РёРѕС‚РµРєСѓ'>
+          <button onClick={() => setCurrentView('library')} className={`p-2 rounded-full ${currentView === 'library' ? 'bg-gray-200 dark:bg-gray-700' : ''} text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors`} title='Открыть библиотеку'>
             <LibraryIcon className="w-6 h-6" />
           </button>
-          <button onClick={() => setCurrentView('workspace')} className={`p-2 rounded-full ${currentView === 'workspace' ? 'bg-gray-200 dark:bg-gray-700' : ''} text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors`} title='РћС‚РєСЂС‹С‚СЊ РѕР±С‰РµРµ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРѕ'>
+          <button onClick={() => setCurrentView('workspace')} className={`p-2 rounded-full ${currentView === 'workspace' ? 'bg-gray-200 dark:bg-gray-700' : ''} text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors`} title='Открыть общее пространство'>
             <WorkspaceIcon className="w-6 h-6" />
           </button>
-          <button onClick={handleLogout} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors" title="Р’С‹Р№С‚Рё">
+          <button onClick={handleLogout} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-colors" title="Выйти">
             <LogoutIcon className="w-6 h-6" />
           </button>
         </div>
@@ -484,9 +444,6 @@ const App: React.FC = () => {
               onSendMessage={handleSendMessage}
               appState={appState}
               isPdfLoaded={!!pdfFile}
-              modelOptions={CHAT_MODEL_OPTION_LIST}
-              selectedModel={chatModel}
-              onModelChange={setChatModel}
             />
         </div>
       )}
@@ -532,13 +489,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-
-
-
-
-
-
-
-
-
-
